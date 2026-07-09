@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Pulse Hub</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0A0A0C;
+            --card-bg: #1C1C1E;
+            --text-main: #FFFFFF;
+            --text-muted: #8E8E93;
+            --accent: #0A84FF;
+            --accent-green: #30D158;
+            --border: #2C2C2E;
+            --menu-bg: #161618;
+        }
+        .light-theme {
+            --bg-color: #F2F2F7;
+            --card-bg: #FFFFFF;
+            --text-main: #000000;
+            --text-muted: #636366;
+            --accent: #007AFF;
+            --accent-green: #34C759;
+            --border: #E5E5EA;
+            --menu-bg: #E5E5EA;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            transition: background 0.3s, color 0.3s;
+            overflow-x: hidden;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            background-color: var(--card-bg);
+        }
+        .burger-btn, .theme-btn {
+            background: none;
+            border: none;
+            color: var(--text-main);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+        }
+        header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -280px;
+            width: 280px;
+            height: 100%;
+            background-color: var(--menu-bg);
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+            transition: left 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);
+            z-index: 1000;
+            padding: 30px 20px;
+            box-sizing: border-box;
+        }
+        .sidebar.active { left: 0; }
+        .sidebar h2 { font-size: 24px; margin-bottom: 30px; }
+        .menu-item {
+            display: block;
+            color: var(--text-main);
+            text-decoration: none;
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 17px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+        .menu-item.active { background-color: var(--accent); color: #fff; }
+        .close-sidebar-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--text-main);
+            font-size: 20px;
+        }
+        .view-section { display: none; padding: 20px; max-width: 500px; margin: 0 auto; }
+        .view-section.active { display: block; }
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .input-group { display: flex; flex-direction: column; gap: 12px; }
+        input, textarea {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 16px;
+            outline: none;
+        }
+        input[type="time"] { color-scheme: dark; }
+        .light-theme input[type="time"] { color-scheme: light; }
+        button.main-btn {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .list-container { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+        .item-row {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            padding: 16px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .item-left { display: flex; align-items: center; gap: 14px; cursor: pointer; flex: 1; }
+        .custom-checkbox {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid var(--accent);
+        }
+        .checked .custom-checkbox { background-color: var(--accent-green); border-color: var(--accent-green); }
+        .item-text { font-size: 16px; font-weight: 500; }
+        .checked .item-text { text-decoration: line-through; color: var(--text-muted); }
+        .item-time { font-size: 12px; color: var(--accent); font-weight: 600; }
+        .delete-btn { background: none; border: none; color: #FF453A; font-size: 14px; }
+        .efficiency-badge { font-size: 24px; font-weight: 700; color: var(--accent-green); text-align: center; margin: 15px 0; }
+        textarea.notes-area { width: 100%; height: 300px; resize: none; box-sizing: border-box; }
+        .status-badge { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <button class="burger-btn" onclick="toggleSidebar()">☰</button>
+        <h1 id="viewTitle">Мой День</h1>
+        <button class="theme-btn" onclick="toggleTheme()">🌙</button>
+    </header>
+
+    <div class="sidebar" id="sidebar">
+        <button class="close-sidebar-btn" onclick="toggleSidebar()">✕</button>
+        <h2>Навигация</h2>
+        <div class="menu-item active" onclick="navigate('day', 'Мой День')">📝 Мой День</div>
+        <div class="menu-item" onclick="navigate('analytics', 'Аналитика')">📊 Аналитика</div>
+        <div class="menu-item" onclick="navigate('habits', 'Привычки')">🏃‍♂️ Привычки</div>
+        <div class="menu-item" onclick="navigate('notes', 'Творческая студия')">🎬 Творческая студия</div>
+    </div>
+
+    <div id="view-day" class="view-section active">
+        <div class="status-badge" id="notifStatus" onclick="askPermission()">🔔 Нажми сюда для активации пушей</div>
+        <div class="card">
+            <h3>Запланировать уведомление</h3>
+            <div class="input-group">
+                <input type="text" id="taskText" placeholder="Что нужно сделать?">
+                <input type="time" id="taskTime">
+                <button class="main-btn" onclick="addTask()">Добавить задачу</button>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Список дел на сегодня</h3>
+            <div class="list-container" id="dayList"></div>
+        </div>
+        <div class="card">
+            <h3>Итоги продуктивности</h3>
+            <div class="efficiency-badge" id="efficiencyValue">0%</div>
+            <button class="main-btn" style="width:100%; background-color: var(--accent-green);" onclick="closeDay()">Зафиксировать итог дня</button>
+        </div>
+    </div>
+
+    <div id="view-analytics" class="view-section">
+        <div class="card">
+            <h3>График твоей эффективности</h3>
+            <canvas id="efficiencyChart" style="width:100%; height:250px;"></canvas>
+        </div>
+    </div>
+
+    <div id="view-habits" class="view-section">
+        <div class="card">
+            <h3>Ежедневные привычки</h3>
+            <div class="input-group">
+                <input type="text" id="habitText" placeholder="Новая привычка (например: Отжаться 5 раз)">
+                <button class="main-btn" onclick="addHabit()">Добавить трекер</button>
+            </div>
+            <div class="list-container" id="habitList"></div>
+        </div>
+    </div>
+
+    <div id="view-notes" class="view-section">
+        <div class="card">
+            <h3>Идеи и сценарии</h3>
+            <textarea class="notes-area" id="notesData" placeholder="Сохраняется автоматически..." oninput="saveNotes()"></textarea>
+        </div>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log('Фоновый движок iOS активирован!'))
+                .catch(err => console.log('Ошибка SW:', err));
+        }
+
+        let appState = { theme: 'dark', tasks: [], habits: [], notes: '', history: {} };
+        let chartInstance = null;
+
+        if(localStorage.getItem('dailyPulseData')) {
+            appState = JSON.parse(localStorage.getItem('dailyPulseData'));
+        }
+
+        if(appState.theme === 'light') {
+            document.body.classList.add('light-theme');
+            document.querySelector('.theme-btn').textContent = '☀️';
+        }
+
+        function saveState() { localStorage.setItem('dailyPulseData', JSON.stringify(appState)); }
+
+        function toggleTheme() {
+            document.body.classList.toggle('light-theme');
+            const isLight = document.body.classList.contains('light-theme');
+            appState.theme = isLight ? 'light' : 'dark';
+            document.querySelector('.theme-btn').textContent = isLight ? '☀️' : '🌙';
+            saveState();
+            if(chartInstance) renderChart();
+        }
+
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
+
+        function navigate(viewId, title) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(`view-${viewId}`).classList.add('active');
+            document.getElementById('viewTitle').textContent = title;
+            if(window.event) window.event.target.classList.add('active');
+            toggleSidebar();
+            if(viewId === 'analytics') renderChart();
+        }
+
+        function askPermission() {
+            Notification.requestPermission().then(perm => {
+                if(perm === 'granted') {
+                    document.getElementById('notifStatus').textContent = '✅ Уведомления успешно подключены!';
+                    new Notification("Daily Pulse", { body: "Ура! Теперь всё работает." });
+                } else {
+                    alert("Доступ запрещен. Включи уведомления в настройках браузера.");
+                }
+            });
+        }
+        if(Notification.permission === 'granted') document.getElementById('notifStatus').textContent = '✅ Уведомления успешно подключены!';
+
+        function addTask() {
+            const txt = document.getElementById('taskText');
+            const tm = document.getElementById('taskTime');
+            if(!txt.value.trim() || !tm.value) return;
+            appState.tasks.push({ id: Date.now(), text: txt.value, time: tm.value, completed: false, triggered: false });
+            txt.value = ''; saveState(); renderDayTasks();
+        }
+
+        function toggleTask(id) {
+            appState.tasks = appState.tasks.map(t => t.id === id ? {...t, completed: !t.completed} : t);
+            saveState(); renderDayTasks();
+        }
+
+        function deleteTask(id) {
+            appState.tasks = appState.tasks.filter(t => t.id !== id);
+            saveState(); renderDayTasks();
+        }
+
+        function renderDayTasks() {
+            const container = document.getElementById('dayList');
+            container.innerHTML = '';
+            appState.tasks.sort((a,b) => a.time.localeCompare(b.time));
+            let comp = 0;
+            appState.tasks.forEach(t => {
+                if(t.completed) comp++;
+                const row = document.createElement('div');
+                row.className = `item-row ${t.completed ? 'checked' : ''}`;
+                row.innerHTML = `
+                    <div class="item-left" onclick="toggleTask(${t.id})">
+                        <div class="custom-checkbox"></div>
+                        <div><div class="item-text">${t.text}</div><div class="item-time">⏰ ${t.time}</div></div>
+                    </div>
+                    <button class="delete-btn" onclick="deleteTask(${t.id})">✕</button>
+                `;
+                container.appendChild(row);
+            });
+            const eff = appState.tasks.length ? Math.round((comp / appState.tasks.length) * 100) : 0;
+            document.getElementById('efficiencyValue').textContent = `${eff}%`;
+        }
+
+        function closeDay() {
+            const dateStr = new Date().toISOString().split('T')[0];
+            appState.history[dateStr] = parseInt(document.getElementById('efficiencyValue').textContent);
+            appState.tasks = []; saveState(); renderDayTasks();
+            alert('День закрыт! Статистика сохранена.');
+        }
+
+        function addHabit() {
+            const txt = document.getElementById('habitText');
+            if(!txt.value.trim()) return;
+            appState.habits.push({ id: Date.now(), text: txt.value, completed: false });
+            txt.value = ''; saveState(); renderHabits();
+        }
+
+        function toggleHabit(id) {
+            appState.habits = appState.habits.map(h => h.id === id ? {...h, completed: !h.completed} : h);
+            saveState(); renderHabits();
+        }
+
+        function deleteHabit(id) {
+            appState.habits = appState.habits.filter(h => h.id !== id);
+            saveState(); renderHabits();
+        }
+
+        function renderHabits() {
+            const container = document.getElementById('habitList');
+            container.innerHTML = '';
+            appState.habits.forEach(h => {
+                const row = document.createElement('div');
+                row.className = `item-row ${h.completed ? 'checked' : ''}`;
+                row.innerHTML = `
+                    <div class="item-left" onclick="toggleHabit(${h.id})">
+                        <div class="custom-checkbox"></div><div class="item-text">${h.text}</div>
+                    </div>
+                    <button class="delete-btn" onclick="deleteHabit(${h.id})">✕</button>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function saveNotes() { appState.notes = document.getElementById('notesData').value; saveState(); }
+
+        setInterval(() => {
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+            appState.tasks.forEach(t => {
+                if(t.time === timeStr && !t.triggered) {
+                    t.triggered = true; saveState();
+                    if(Notification.permission === 'granted') {
+                        new Notification("Daily Pulse ⚡️", { body: `Пора делать: ${t.text}`, requireInteraction: true });
+                    }
+                }
+            });
+        }, 1000);
+
+        function renderChart() {
+            const ctx = document.getElementById('efficiencyChart').getContext('2d');
+            if(chartInstance) chartInstance.destroy();
+            const dates = Object.keys(appState.history).slice(-7);
+            const efficiencies = dates.map(d => appState.history[d]);
+            const labelData = dates.length ? dates : ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+            const chartData = dates.length ? efficiencies : [0, 0, 0, 0, 0, 0, 0];
+            const isLight = appState.theme === 'light';
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labelData,
+                    datasets: [{ data: chartData, borderColor: '#0A84FF', backgroundColor: 'rgba(10, 132, 255, 0.1)', borderWidth: 3, tension: 0.3, fill: true }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: isLight ? '#E5E5EA' : '#2C2C2E' }, ticks: { color: isLight ? '#000' : '#fff' } },
+                        y: { min: 0, max: 100, grid: { color: isLight ? '#E5E5EA' : '#2C2C2E' }, ticks: { color: isLight ? '#000' : '#fff' } }
+                    }
+                }
+            });
+        }
+
+        renderDayTasks();
+        renderHabits();
+        document.getElementById('notesData').value = appState.notes;
+    </script>
+</body>
+</html>
